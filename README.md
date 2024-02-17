@@ -1,6 +1,6 @@
 # Humans versus zombies
 
-This is a simple project to simulate human survival against zombies.
+This is a simple project to simulate human survival against zombies using a natural selection algorithm.
     
 ## How to test
 
