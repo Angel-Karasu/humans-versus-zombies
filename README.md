@@ -11,10 +11,6 @@ cd humans-versus-zombies;
 pip install -r requirements.txt;
 python ./main.py;
 ```
-    
-## To do
-
-- [ ] Clean the code
   
 ## License
 
