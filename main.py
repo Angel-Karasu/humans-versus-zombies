@@ -114,21 +114,21 @@ def progress_bar(progres, total):
     return f'|{bar}| {percent:.2f}%'
 
 axis = []
-isPlaying = True
+isRunning = True
 nb_gen = 0
 stats = {'sense':[], 'shoot_precision':[], 'speed':[]}
 
 print(progress_bar(0, NB_GEN), end='\r')
-while nb_gen < NB_GEN and isPlaying:
+while nb_gen < NB_GEN and isRunning:
     humans = init_humans() if nb_gen == 0 else natural_selection()
     deaths = []
     zombies = init_zombies()
 
     i = 0
-    while humans and zombies and i < NB_ENTITIES and isPlaying:
+    while humans and zombies and i < NB_ENTITIES and isRunning:
         WINDOW.fill((0,0,0))
         for event in pygame.event.get():
-            isPlaying = not (event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE))
+            isRunning = not (event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE))
         actions()
         i += 1
         pygame.display.flip()
