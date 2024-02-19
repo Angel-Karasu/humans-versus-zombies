@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import random
+import random, time
 
 DISPLAY = True
 NB_ENTITIES = 250
@@ -82,14 +82,12 @@ def actions():
             if random.random() > 0.5: entity1.actions(entity2, distance)
             else: entity2.actions(entity1, distance)
 
-def closest_entity(entity1:Entity, entities:list[Entity]):
-    closest = (0, np.inf)
-    for entity2 in entities:
-        dx, dy = (np.absolute(entity1.position[i] - entity2.position[i]) for i in range(2))
-        distance = np.square(min(dx, WORLD_SIZE[0] - dx)) + np.square(min(dy, WORLD_SIZE[1] - dy))
-        if distance < closest[1]: closest = entity2, distance
-
-    return closest[0], np.sqrt(closest[1])
+def closest_entity(entity:Entity, entities:list[Entity]):
+    entities_position = np.array([entity.position for entity in entities])
+    distances = np.sum(np.square(entities_position - np.array(entity.position)), axis=1)
+    closest_index = np.argmin(distances)
+    
+    return entities[closest_index], np.sqrt(distances[closest_index])
 
 def init_humans(nb=NB_ENTITIES):
     return [Human(
@@ -129,17 +127,17 @@ while nb_gen < NB_GEN and is_running:
     deaths = []
     zombies = init_zombies()
 
-    time = 0
-    while humans and zombies and time < 3600 and is_running: # Simulate one hour
+    t = 0
+    while humans and zombies and t < 3600 and is_running: # Simulate one hour
         if DISPLAY:
             if pygame.event.get([pygame.QUIT, pygame.KEYDOWN]): is_running = False
             WINDOW.fill((0,0,0))
-            for i, text in enumerate([f'Nb gene : {nb_gen}/{NB_GEN}', f'Survive time : {time}s', f'Humans : {len(humans)}', f'Zombies : {len(zombies)}']):
+            for i, text in enumerate([f'Nb gene : {nb_gen}/{NB_GEN}', f'Survive time : {t}s', f'Humans : {len(humans)}', f'Zombies : {len(zombies)}']):
                 WINDOW.blit(FONT.render(text, False, (255, 255, 255)), (0,i*15))
             actions()
             pygame.display.flip()
         else: actions()
-        time += 1 # Add 1 second
+        t += 1 # Add 1 second
 
     if humans:
         winners = f'Humans won, {len(humans)} were still alive'
