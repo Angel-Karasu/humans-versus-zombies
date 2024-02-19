@@ -3,8 +3,8 @@ import numpy as np
 import random
 
 DISPLAY = True
-NB_ENTITIES = 200
-NB_GEN = 24*365              # Simulating a year of generations
+NB_ENTITIES = 250
+NB_GEN = 24*365              # Simulating one year of generations
 WORLD_SIZE = (1280, 720)     # in m²
 
 if DISPLAY:
@@ -12,13 +12,15 @@ if DISPLAY:
 
     pygame.init()
     pygame.display.set_caption('Humans versus zombies')
+    pygame.font.init()
+    FONT = pygame.font.SysFont('DejaVu Sans', 10)
     WINDOW = pygame.display.set_mode(WORLD_SIZE)
 
 class Entity:
     def __init__(self, color:tuple[int, 3], position:tuple[int, 2], sense: int, speed: int):
         self.color = color
         self.position = position
-        self.sense = sense
+        self.sense = sense # In m
         self.speed = speed # In m/s
 
     def move(self, x:int, y:int):
@@ -30,7 +32,7 @@ class Entity:
 
 class Human(Entity):
     def __init__(self, sense:int, shoot_precision:float, speed:int):
-        self.survive_time = 0 # In second
+        self.survive_time = 1 # In second
         self.shoot_precision = shoot_precision
         super().__init__(
             (0, 0, 255),
@@ -67,7 +69,7 @@ class Zombie(Entity):
         else: super().move(random.choice((-1, 1)), random.choice((-1, 1)))
 
     def eat(self, human):
-        zombies.append(Zombie(human.position, human.sense, human.speed))
+        zombies.append(Zombie(human.position, human.sense*2, human.speed/2))
         human.death()
 
     def death(self): zombies.remove(self)
@@ -93,7 +95,7 @@ def init_humans(nb=NB_ENTITIES):
     return [Human(
         random.randint(5, 15),
         random.random(),
-        random.randint(2, 7)
+        random.randint(2, 8)
     ) for _ in range(nb)]
 
 def init_zombies():
@@ -127,15 +129,17 @@ while nb_gen < NB_GEN and is_running:
     deaths = []
     zombies = init_zombies()
 
-    i = 0
-    while humans and zombies and i < 3600 and is_running: # Simulate one hour
+    time = 0
+    while humans and zombies and time < 3600 and is_running: # Simulate one hour
         if DISPLAY:
             if pygame.event.get([pygame.QUIT, pygame.KEYDOWN]): is_running = False
             WINDOW.fill((0,0,0))
+            for i, text in enumerate([f'Nb gene : {nb_gen}/{NB_GEN}', f'Survive time : {time}s', f'Humans : {len(humans)}', f'Zombies : {len(zombies)}']):
+                WINDOW.blit(FONT.render(text, False, (255, 255, 255)), (0,i*15))
             actions()
             pygame.display.flip()
         else: actions()
-        i += 1 # Add 1 second
+        time += 1 # Add 1 second
 
     if humans:
         winners = f'Humans won, {len(humans)} were still alive'
@@ -158,20 +162,9 @@ axis = range(nb_gen)
 plt.xlabel('Generation')
 plt.ylabel('Gene average')
 
-m, b = np.polyfit(axis, stats['speed'], 1)
-aj_lineaire = np.poly1d([m, b])
-plt.plot(axis, aj_lineaire(axis), label='speed', color='#62AFDE')
-plt.plot(axis, stats['speed'], label='speed Point', color='#213757', alpha=0.2)
-
-m, b = np.polyfit(axis, stats['sense'], 1)
-aj_lineaire = np.poly1d([m, b])
-plt.plot(axis, aj_lineaire(axis), label='sense', color='#A8D379')
-plt.plot(axis, stats['sense'], label='sense Point', color='#3DA542', alpha=0.2)
-
-m, b = np.polyfit(axis, stats['shoot_precision'], 1)
-aj_lineaire = np.poly1d([m, b])
-plt.plot(axis, aj_lineaire(axis), label='shoot precision', color='#ECCD00')
-plt.plot(axis, stats['shoot_precision'], label='shoot precision Point', color='#E38D00', alpha=0.2)
+plt.plot(axis, stats['speed'], label='speed', color='#213757')
+plt.plot(axis, stats['sense'], label='sense', color='#3DA542')
+plt.plot(axis, stats['shoot_precision'], label='shoot precision', color='#E38D00')
 
 plt.legend(loc='upper left')
 plt.show()
