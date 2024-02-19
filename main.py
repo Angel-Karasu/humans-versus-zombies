@@ -1,42 +1,45 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import pygame, random
+import random
 
-pygame.init()
-pygame.display.set_caption('Humans versus zombies')
+DISPLAY = False
+WORLD_SIZE = (1600, 900) # World 1600*900 km²
 
-WIN_SIZE = (1600, 900)
-WINDOW = pygame.display.set_mode(WIN_SIZE)
+if DISPLAY:
+    import pygame
+    pygame.init()
+    pygame.display.set_caption('Humans versus zombies')
+    WINDOW = pygame.display.set_mode(WORLD_SIZE)
 
 NB_ENTITIES = 175
 NB_GEN = 100
 
 class Entity:
-    def __init__(self, color, position, sense, speed):
+    def __init__(self, color:tuple[int, 3], position:tuple[int, 2], sense: int, speed: int):
         self.color = color
         self.position = position
         self.sense = sense
-        self.speed = speed
+        self.speed = speed # In km/h
 
-    def move(self, x, y):
+    def move(self, x:int, y:int):
         self.position = (
-            (self.position[0] - x*self.speed) % WIN_SIZE[0],
-            (self.position[1] - y*self.speed) % WIN_SIZE[1]
+            (self.position[0] - x*self.speed) % WORLD_SIZE[0],
+            (self.position[1] - y*self.speed) % WORLD_SIZE[1]
         )
-        pygame.draw.circle(WINDOW, self.color, self.position, 1)
+        if DISPLAY: pygame.draw.circle(WINDOW, self.color, self.position, 1)
 
 class Human(Entity):
-    def __init__(self, sense, shoot_precision, speed):
-        self.life = 0
+    def __init__(self, sense:int, shoot_precision:int, speed:int):
+        self.survive_time = 0 # In hours
         self.shoot_precision = shoot_precision
         super().__init__(
             (0, 0, 255),
-            (random.randint(0, WIN_SIZE[0]), random.randint(0, WIN_SIZE[1])),
+            (random.randint(0, WORLD_SIZE[0]), random.randint(0, WORLD_SIZE[1])),
             sense, speed
         )
 
-    def actions(self, zombie, distance):
-        self.life += 1
+    def actions(self, zombie:'Zombie', distance:int):
+        self.survive_time += 1
         if distance < self.sense/2:
             if random.random() < self.shoot_precision/2: zombie.death()
         elif distance < self.sense: super().move(
@@ -50,10 +53,10 @@ class Human(Entity):
         humans.remove(self)
 
 class Zombie(Entity):
-    def __init__(self, position, sense=15, speed=7):
+    def __init__(self, position:tuple[int, 2], sense:int, speed:int):
         super().__init__((0, 255, 0), position, sense, speed)
 
-    def actions(self, human, distance):
+    def actions(self, human:Human, distance:int):
         if distance < 3: self.eat(human)
         else:
             super().move(
@@ -76,7 +79,7 @@ def actions():
             entity[0].actions(entity[1], distance)
             entity[1].actions(entity[0], distance)
 
-def closest_entity(entity1, entities):
+def closest_entity(entity1:Entity, entities:list[Entity]):
     min = (0, np.inf)
     for i, entity2 in enumerate(entities):
         distance = np.square(entity1.position[0] - entity2.position[0]) + np.square(entity1.position[1] - entity2.position[1])
@@ -88,19 +91,21 @@ def init_humans(nb=NB_ENTITIES):
     return [Human(
         random.randint(4, 20),
         random.random(),
-        random.randint(3, 12),
+        random.randint(7, 25)
     ) for _ in range(nb)]
 
 def init_zombies():
     return [Zombie(
-        (random.randint(0, WIN_SIZE[0]), random.randint(0, WIN_SIZE[1]))
+        (random.randint(0, WORLD_SIZE[0]), random.randint(0, WORLD_SIZE[1])),
+        random.randint(4, 15),
+        random.randint(4, 15)
     ) for _ in range(NB_ENTITIES)]
 
 def natural_selection():
-    dead_humans = sorted(deaths, key=lambda d: d.life, reverse=True)
+    dead_humans = sorted(deaths, key=lambda d: d.survive_time, reverse=True)
     humans = [
         Human(dead_human.sense, dead_human.shoot_precision, dead_human.speed)
-        for dead_human in dead_humans if random.random() <= dead_human.life / dead_humans[0].life
+        for dead_human in dead_humans if random.random() <= dead_human.survive_time / dead_humans[0].survive_time
     ]
     humans.extend(init_humans(NB_ENTITIES - len(humans)))
     return humans
@@ -122,18 +127,20 @@ while nb_gen < NB_GEN and is_running:
     zombies = init_zombies()
 
     i = 0
-    while humans and zombies and i < NB_ENTITIES and is_running:
-        WINDOW.fill((0,0,0))
-        for event in pygame.event.get():
-            is_running = not (event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE))
-        actions()
-        i += 1
-        pygame.display.flip()
+    while humans and zombies and i < 24*365 and is_running: # Simulate one year
+        if DISPLAY:
+            WINDOW.fill((0,0,0))
+            for event in pygame.event.get():
+                is_running = not (event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE))
+            actions()
+            pygame.display.flip()
+        else: actions()
+        i += 1 # Add 1 hours
 
     if humans:
         winners = f'Humans won, {len(humans)} were still alive'
         for human in humans:
-            human.life *= 2
+            human.survive_time *= 2
             human.death()
     else: winners = f'Zombies won, {len(zombies)} were still alive'
 
