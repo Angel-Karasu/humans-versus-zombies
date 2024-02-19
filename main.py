@@ -121,7 +121,7 @@ is_running = True
 nb_gen = 0
 stats = {'sense':[], 'shoot_precision':[], 'speed':[]}
 
-# print(progress_bar(0, NB_GEN), end='\r')
+print(progress_bar(0, NB_GEN), end='\r')
 while nb_gen < NB_GEN and is_running:
     humans = init_humans() if nb_gen == 0 else natural_selection()
     deaths = []
@@ -132,7 +132,6 @@ while nb_gen < NB_GEN and is_running:
         if DISPLAY:
             WINDOW.fill((0,0,0))
             for event in pygame.event.get():
-                print(event)
                 if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE): is_running = False
             actions()
             pygame.display.flip()
@@ -150,7 +149,7 @@ while nb_gen < NB_GEN and is_running:
     for key in stats.keys(): stats[key].append(np.average([getattr(human, key) for human in deaths]))
 
     nb_gen += 1
-    # print(progress_bar(nb_gen, NB_GEN), '\t', winners, end='\r')
+    print(progress_bar(nb_gen, NB_GEN), '\t', winners, end='\r')
 
 print('\n')
 
