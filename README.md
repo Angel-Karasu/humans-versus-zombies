@@ -11,6 +11,10 @@ cd humans-versus-zombies;
 pip install -r requirements.txt;
 python ./main.py;
 ```
+
+## To do
+
+- [ ] Optimize the code
   
 ## License
 

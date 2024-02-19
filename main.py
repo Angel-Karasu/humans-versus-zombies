@@ -3,16 +3,15 @@ import numpy as np
 import random
 
 DISPLAY = True
-NB_ENTITIES = 250
-NB_GEN = 24*365             # Simulating a year of generations
-WORLD_SIZE = (1600, 900)    # World 1600*900 m²
+NB_ENTITIES = 200
+NB_GEN = 24*365              # Simulating a year of generations
+WORLD_SIZE = (1280, 720)     # in m²
 
 if DISPLAY:
     import pygame
 
     pygame.init()
     pygame.display.set_caption('Humans versus zombies')
-    pygame.event.set_allowed((pygame.QUIT, pygame.KEYDOWN))
     WINDOW = pygame.display.set_mode(WORLD_SIZE)
 
 class Entity:
@@ -43,7 +42,8 @@ class Human(Entity):
         self.survive_time += 1 # Add 1 second
         if distance < self.sense/2:
             if random.random() < self.shoot_precision/2: zombie.death()
-        elif distance < self.sense: super().move(
+        elif distance < self.sense:
+            super().move(
                 np.sign(zombie.position[0] - self.position[0]),
                 np.sign(zombie.position[1] - self.position[1])
             )
@@ -59,11 +59,12 @@ class Zombie(Entity):
 
     def actions(self, human:Human, distance:float):
         if distance < 2: self.eat(human)
-        else:
+        elif distance < self.sense:
             super().move(
                 np.sign(self.position[0] - human.position[0]),
                 np.sign(self.position[1] - human.position[1])
             )
+        else: super().move(random.choice((-1, 1)), random.choice((-1, 1)))
 
     def eat(self, human):
         zombies.append(Zombie(human.position, human.sense, human.speed))
@@ -76,21 +77,21 @@ def actions():
     for entity1 in entities[0]:
         if entities[1]:
             entity2, distance = closest_entity(entity1, entities[1])
-            entity = (entity1, entity2) if random.random() > 0.5 else (entity2, entity1)
-            entity[0].actions(entity[1], distance)
-            entity[1].actions(entity[0], distance)
+            if random.random() > 0.5: entity1.actions(entity2, distance)
+            else: entity2.actions(entity1, distance)
 
 def closest_entity(entity1:Entity, entities:list[Entity]):
-    min = (0, np.inf)
-    for i, entity2 in enumerate(entities):
-        distance = np.square(entity1.position[0] - entity2.position[0]) + np.square(entity1.position[1] - entity2.position[1])
-        if distance < min[1]: min = (i, distance)
+    closest = (0, np.inf)
+    for entity2 in entities:
+        dx, dy = (np.absolute(entity1.position[i] - entity2.position[i]) for i in range(2))
+        distance = np.square(min(dx, WORLD_SIZE[0] - dx)) + np.square(min(dy, WORLD_SIZE[1] - dy))
+        if distance < closest[1]: closest = entity2, distance
 
-    return (entities[min[0]], np.sqrt(min[1]))
+    return closest[0], np.sqrt(closest[1])
 
 def init_humans(nb=NB_ENTITIES):
     return [Human(
-        random.randint(4, 20),
+        random.randint(5, 15),
         random.random(),
         random.randint(2, 7)
     ) for _ in range(nb)]
@@ -98,7 +99,7 @@ def init_humans(nb=NB_ENTITIES):
 def init_zombies():
     return [Zombie(
         (random.randint(0, WORLD_SIZE[0]), random.randint(0, WORLD_SIZE[1])),
-        random.randint(4, 15),
+        random.randint(10, 25),
         random.randint(1, 4)
     ) for _ in range(NB_ENTITIES)]
 
@@ -116,7 +117,6 @@ def progress_bar(progres, total):
     bar = '█'*int(percent) + '-'*(100-int(percent))
     return f'|{bar}| {percent:.2f}%'
 
-axis = []
 is_running = True
 nb_gen = 0
 stats = {'sense':[], 'shoot_precision':[], 'speed':[]}
@@ -130,9 +130,8 @@ while nb_gen < NB_GEN and is_running:
     i = 0
     while humans and zombies and i < 3600 and is_running: # Simulate one hour
         if DISPLAY:
+            if pygame.event.get([pygame.QUIT, pygame.KEYDOWN]): is_running = False
             WINDOW.fill((0,0,0))
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE): is_running = False
             actions()
             pygame.display.flip()
         else: actions()
@@ -145,7 +144,6 @@ while nb_gen < NB_GEN and is_running:
             human.death()
     else: winners = f'Zombies won, {len(zombies)} were still alive'
 
-    axis.append(nb_gen)
     for key in stats.keys(): stats[key].append(np.average([getattr(human, key) for human in deaths]))
 
     nb_gen += 1
@@ -154,6 +152,8 @@ while nb_gen < NB_GEN and is_running:
 print('\n')
 
 if DISPLAY: pygame.quit()
+
+axis = range(nb_gen)
 
 plt.xlabel('Generation')
 plt.ylabel('Gene average')
