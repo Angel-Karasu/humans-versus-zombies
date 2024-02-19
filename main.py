@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import random, time
+import random
 
 DISPLAY = True
-NB_ENTITIES = 250
+NB_ENTITIES = 750
 NB_GEN = 24*365              # Simulating one year of generations
 WORLD_SIZE = (1280, 720)     # in m²
 
@@ -43,7 +43,7 @@ class Human(Entity):
     def actions(self, zombie:'Zombie', distance:float):
         self.survive_time += 1 # Add 1 second
         if distance < self.sense/2:
-            if random.random() < self.shoot_precision/2: zombie.death()
+            if random.random() < self.shoot_precision: zombie.death()
         elif distance < self.sense:
             super().move(
                 np.sign(zombie.position[0] - self.position[0]),
@@ -52,8 +52,9 @@ class Human(Entity):
         else: super().move(random.choice((-1, 1)), random.choice((-1, 1)))
 
     def death(self):
-        deaths.append(self)
-        humans.remove(self)
+        global deaths, humans
+        deaths = np.append(deaths, [self])
+        humans = np.delete(humans, np.where(humans == self))
 
 class Zombie(Entity):
     def __init__(self, position:tuple[int, 2], sense:int, speed:int):
@@ -69,48 +70,49 @@ class Zombie(Entity):
         else: super().move(random.choice((-1, 1)), random.choice((-1, 1)))
 
     def eat(self, human):
-        zombies.append(Zombie(human.position, human.sense*2, human.speed/2))
+        np.append(zombies, Zombie(human.position, human.sense, human.speed))
         human.death()
 
-    def death(self): zombies.remove(self)
+    def death(self):
+        global zombies
+        zombies = np.delete(zombies, np.where(zombies == self))
 
 def actions():
     entities = (humans, zombies) if len(humans) > len(zombies) else (zombies, humans)
     for entity1 in entities[0]:
-        if entities[1]:
+        if entities[1].any():
             entity2, distance = closest_entity(entity1, entities[1])
             if random.random() > 0.5: entity1.actions(entity2, distance)
             else: entity2.actions(entity1, distance)
 
-def closest_entity(entity:Entity, entities:list[Entity]):
+def closest_entity(entity:Entity, entities:np.ndarray[Entity]):
     entities_position = np.array([entity.position for entity in entities])
     distances = np.sum(np.square(entities_position - np.array(entity.position)), axis=1)
     closest_index = np.argmin(distances)
     
     return entities[closest_index], np.sqrt(distances[closest_index])
 
-def init_humans(nb=NB_ENTITIES):
-    return [Human(
-        random.randint(5, 15),
-        random.random(),
+def init_humans(nb=NB_ENTITIES) -> np.ndarray[Human]:
+    return np.array([Human(
+        random.randint(10, 15),
+        random.random()/2,
         random.randint(2, 8)
-    ) for _ in range(nb)]
+    ) for _ in range(nb)])
 
-def init_zombies():
-    return [Zombie(
+def init_zombies() -> np.ndarray[Zombie]:
+    return np.array([Zombie(
         (random.randint(0, WORLD_SIZE[0]), random.randint(0, WORLD_SIZE[1])),
         random.randint(10, 25),
-        random.randint(1, 4)
-    ) for _ in range(NB_ENTITIES)]
+        random.randint(2, 6)
+    ) for _ in range(NB_ENTITIES)])
 
-def natural_selection():
+def natural_selection() -> np.ndarray[Human]:
     dead_humans = sorted(deaths, key=lambda d: d.survive_time, reverse=True)
-    humans = [
+    humans = np.array([
         Human(dead_human.sense, dead_human.shoot_precision, dead_human.speed)
         for dead_human in dead_humans if random.random() <= dead_human.survive_time / dead_humans[0].survive_time
-    ]
-    humans.extend(init_humans(NB_ENTITIES - len(humans)))
-    return humans
+    ])
+    return np.append(humans, init_humans(NB_ENTITIES - len(humans)))
 
 def progress_bar(progres, total):
     percent = (progres/float(total))*100
@@ -124,22 +126,23 @@ stats = {'sense':[], 'shoot_precision':[], 'speed':[]}
 print(progress_bar(0, NB_GEN), end='\r')
 while nb_gen < NB_GEN and is_running:
     humans = init_humans() if nb_gen == 0 else natural_selection()
-    deaths = []
+    deaths = np.array([])
     zombies = init_zombies()
 
-    t = 0
-    while humans and zombies and t < 3600 and is_running: # Simulate one hour
+    time = 0
+    while humans.any() and zombies.any() and time < 3600 and is_running: # Simulate one hour
         if DISPLAY:
-            if pygame.event.get([pygame.QUIT, pygame.KEYDOWN]): is_running = False
+            for event in pygame.event.get([pygame.QUIT, pygame.KEYDOWN]):
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE) :is_running = False
             WINDOW.fill((0,0,0))
-            for i, text in enumerate([f'Nb gene : {nb_gen}/{NB_GEN}', f'Survive time : {t}s', f'Humans : {len(humans)}', f'Zombies : {len(zombies)}']):
-                WINDOW.blit(FONT.render(text, False, (255, 255, 255)), (0,i*15))
+            for i, text in enumerate([f'Nb gene : {nb_gen}/{NB_GEN}', f'Survive time : {time}s', f'Humans : {len(humans)}', f'Zombies : {len(zombies)}']):
+                WINDOW.blit(FONT.render(text, False, (255, 255, 255)), (5,5+i*15))
             actions()
             pygame.display.flip()
         else: actions()
-        t += 1 # Add 1 second
+        time += 1 # Add 1 second
 
-    if humans:
+    if humans.any():
         winners = f'Humans won, {len(humans)} were still alive'
         for human in humans:
             human.survive_time *= 2
@@ -155,14 +158,24 @@ print('\n')
 
 if DISPLAY: pygame.quit()
 
-axis = range(nb_gen)
+axis = np.arange(nb_gen)
 
-plt.xlabel('Generation')
-plt.ylabel('Gene average')
+fig, ax1 = plt.subplots()
+ax1.set_xlabel('Nb generation')
 
-plt.plot(axis, stats['speed'], label='speed', color='#213757')
-plt.plot(axis, stats['sense'], label='sense', color='#3DA542')
-plt.plot(axis, stats['shoot_precision'], label='shoot precision', color='#E38D00')
+ax1.set_ylabel('speed (m/s)', color='#213757')
+ax1.plot(axis, stats['speed'], color='#213757')
+ax1.tick_params(axis='y', labelcolor='#213757')
 
-plt.legend(loc='upper left')
+ax2 = ax1.twinx()
+ax2.set_ylabel('sense (m)', color='#3DA542')
+ax2.plot(axis, stats['sense'], color='#3DA542')
+ax2.tick_params(axis='y', labelcolor='#3DA542')
+
+ax3 = ax1.twinx()
+ax3.set_ylabel('shoot precision', color='#E38D00')
+ax3.plot(axis, stats['shoot_precision'], color='#E38D00')
+ax3.tick_params(axis='y', labelcolor='#E38D00')
+
+fig.tight_layout()
 plt.show()
