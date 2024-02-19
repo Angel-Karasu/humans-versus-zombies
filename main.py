@@ -2,24 +2,25 @@ import matplotlib.pyplot as plt
 import numpy as np
 import random
 
-DISPLAY = False
-WORLD_SIZE = (1600, 900) # World 1600*900 km²
+DISPLAY = True
+NB_ENTITIES = 250
+NB_GEN = 24*365             # Simulating a year of generations
+WORLD_SIZE = (1600, 900)    # World 1600*900 m²
 
 if DISPLAY:
     import pygame
+
     pygame.init()
     pygame.display.set_caption('Humans versus zombies')
+    pygame.event.set_allowed((pygame.QUIT, pygame.KEYDOWN))
     WINDOW = pygame.display.set_mode(WORLD_SIZE)
-
-NB_ENTITIES = 175
-NB_GEN = 100
 
 class Entity:
     def __init__(self, color:tuple[int, 3], position:tuple[int, 2], sense: int, speed: int):
         self.color = color
         self.position = position
         self.sense = sense
-        self.speed = speed # In km/h
+        self.speed = speed # In m/s
 
     def move(self, x:int, y:int):
         self.position = (
@@ -29,8 +30,8 @@ class Entity:
         if DISPLAY: pygame.draw.circle(WINDOW, self.color, self.position, 1)
 
 class Human(Entity):
-    def __init__(self, sense:int, shoot_precision:int, speed:int):
-        self.survive_time = 0 # In hours
+    def __init__(self, sense:int, shoot_precision:float, speed:int):
+        self.survive_time = 0 # In second
         self.shoot_precision = shoot_precision
         super().__init__(
             (0, 0, 255),
@@ -38,8 +39,8 @@ class Human(Entity):
             sense, speed
         )
 
-    def actions(self, zombie:'Zombie', distance:int):
-        self.survive_time += 1
+    def actions(self, zombie:'Zombie', distance:float):
+        self.survive_time += 1 # Add 1 second
         if distance < self.sense/2:
             if random.random() < self.shoot_precision/2: zombie.death()
         elif distance < self.sense: super().move(
@@ -56,8 +57,8 @@ class Zombie(Entity):
     def __init__(self, position:tuple[int, 2], sense:int, speed:int):
         super().__init__((0, 255, 0), position, sense, speed)
 
-    def actions(self, human:Human, distance:int):
-        if distance < 3: self.eat(human)
+    def actions(self, human:Human, distance:float):
+        if distance < 2: self.eat(human)
         else:
             super().move(
                 np.sign(self.position[0] - human.position[0]),
@@ -91,14 +92,14 @@ def init_humans(nb=NB_ENTITIES):
     return [Human(
         random.randint(4, 20),
         random.random(),
-        random.randint(7, 25)
+        random.randint(2, 7)
     ) for _ in range(nb)]
 
 def init_zombies():
     return [Zombie(
         (random.randint(0, WORLD_SIZE[0]), random.randint(0, WORLD_SIZE[1])),
         random.randint(4, 15),
-        random.randint(4, 15)
+        random.randint(1, 4)
     ) for _ in range(NB_ENTITIES)]
 
 def natural_selection():
@@ -120,22 +121,23 @@ is_running = True
 nb_gen = 0
 stats = {'sense':[], 'shoot_precision':[], 'speed':[]}
 
-print(progress_bar(0, NB_GEN), end='\r')
+# print(progress_bar(0, NB_GEN), end='\r')
 while nb_gen < NB_GEN and is_running:
     humans = init_humans() if nb_gen == 0 else natural_selection()
     deaths = []
     zombies = init_zombies()
 
     i = 0
-    while humans and zombies and i < 24*365 and is_running: # Simulate one year
+    while humans and zombies and i < 3600 and is_running: # Simulate one hour
         if DISPLAY:
             WINDOW.fill((0,0,0))
             for event in pygame.event.get():
-                is_running = not (event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE))
+                print(event)
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE): is_running = False
             actions()
             pygame.display.flip()
         else: actions()
-        i += 1 # Add 1 hours
+        i += 1 # Add 1 second
 
     if humans:
         winners = f'Humans won, {len(humans)} were still alive'
@@ -148,11 +150,11 @@ while nb_gen < NB_GEN and is_running:
     for key in stats.keys(): stats[key].append(np.average([getattr(human, key) for human in deaths]))
 
     nb_gen += 1
-    print(progress_bar(nb_gen, NB_GEN), '\t', winners, end='\r')
+    # print(progress_bar(nb_gen, NB_GEN), '\t', winners, end='\r')
 
 print('\n')
 
-pygame.quit()
+if DISPLAY: pygame.quit()
 
 plt.xlabel('Generation')
 plt.ylabel('Gene average')
