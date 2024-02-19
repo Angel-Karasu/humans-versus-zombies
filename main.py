@@ -24,6 +24,7 @@ class Entity:
         self.speed = speed # In m/s
 
     def move(self, x:int, y:int):
+        if DISPLAY: pygame.draw.circle(WINDOW, (0,0,0), self.position, 1)
         self.position = (
             (self.position[0] - x*self.speed) % WORLD_SIZE[0],
             (self.position[1] - y*self.speed) % WORLD_SIZE[1]
@@ -44,7 +45,7 @@ class Human(Entity):
         self.survive_time += 1 # Add 1 second
         if distance < 2: self.death()
         elif distance < self.sense:
-            if random.random() < self.shoot_precision/(distance * zombie.speed/8): zombie.death()
+            if random.random() < self.shoot_precision/(distance * zombie.speed/4): zombie.death()
             else:
                 super().move(
                     np.sign(zombie.position[0] - self.position[0]),
@@ -63,7 +64,7 @@ class Zombie(Entity):
 
     def actions(self, human:Human, distance:float):
         if distance < 2: self.eat(human)
-        elif distance < self.sense*human.speed/5:
+        elif distance < self.sense+human.speed:
             super().move(
                 np.sign(self.position[0] - human.position[0]),
                 np.sign(self.position[1] - human.position[1])
@@ -103,7 +104,7 @@ def init_humans(nb=NB_ENTITIES) -> np.ndarray[Human]:
 def init_zombies() -> np.ndarray[Zombie]:
     return np.array([Zombie(
         (random.randint(0, WORLD_SIZE[0]), random.randint(0, WORLD_SIZE[1])),
-        random.randint(10, 25),
+        random.randint(15, 25),
         random.randint(2, 6)
     ) for _ in range(NB_ENTITIES)])
 
@@ -122,8 +123,7 @@ def progress_bar(progres, total):
 
 is_running = True
 nb_gen = 0
-simulation_speed = 100
-stats = {'sense':[], 'shoot_precision':[], 'speed':[]}
+stats = {'sense':[], 'shoot_precision':[], 'speed':[], 'survive_time':[]}
 
 print(progress_bar(0, NB_GEN), end='\r')
 while nb_gen < NB_GEN and is_running:
@@ -143,7 +143,6 @@ while nb_gen < NB_GEN and is_running:
                 f'Survive time : {time}s',
                 f'Humans : {len(humans)}',
                 f'Zombies : {len(zombies)}',
-                f'Simulation speed : {simulation_speed}%'
             ]): WINDOW.blit(FONT.render(text, False, (255, 255, 255)), (5,5+i*15))
             WINDOW.blit(FONT.render('Press escape or q to quit', False, (255, 0, 0)), (5,WORLD_SIZE[1]-15))
             actions()
@@ -185,6 +184,11 @@ ax3 = ax1.twinx()
 ax3.set_ylabel('shoot precision', color='#E38D00')
 ax3.plot(axis, stats['shoot_precision'], color='#E38D00')
 ax3.tick_params(axis='y', labelcolor='#E38D00')
+
+ax4 = ax1.twinx()
+ax4.set_ylabel('survive time (s)', color='#c25abd')
+ax4.plot(axis, stats['survive_time'], color='#c25abd')
+ax4.tick_params(axis='y', labelcolor='#c25abd')
 
 fig.tight_layout()
 plt.show()
