@@ -5,7 +5,7 @@ import pygame, random
 pygame.init()
 pygame.display.set_caption('Humans versus zombies')
 
-WIN_SIZE = (1000, 750)
+WIN_SIZE = (1600, 900)
 WINDOW = pygame.display.set_mode(WIN_SIZE)
 
 NB_ENTITIES = 175
@@ -18,20 +18,12 @@ class Entity:
         self.sense = sense
         self.speed = speed
 
-    def closest_entity(self, entities):
-        min = (0, np.inf)
-        for i, entity in enumerate(entities):
-            distance = np.square(self.position[0] - entity.position[0]) + np.square(self.position[1] - entity.position[1])
-            if distance < min[1]: min = (i, distance)
-
-        return (entities[min[0]], np.sqrt(min[1]))
-
     def move(self, x, y):
         self.position = (
             (self.position[0] - x*self.speed) % WIN_SIZE[0],
             (self.position[1] - y*self.speed) % WIN_SIZE[1]
         )
-        pygame.draw.circle(WINDOW, self.color, self.position, 3)
+        pygame.draw.circle(WINDOW, self.color, self.position, 1)
 
 class Human(Entity):
     def __init__(self, sense, shoot_precision, speed):
@@ -43,19 +35,15 @@ class Human(Entity):
             sense, speed
         )
 
-    def actions(self):
+    def actions(self, zombie, distance):
         self.life += 1
-        if zombies:
-            zombie, distance = self.closest_entity(zombies)
-
-            if distance < self.sense/2:
-                if random.random() < self.shoot_precision/3: zombie.killed()
-            elif distance < self.sense:
-                super().move(
-                    np.sign(zombie.position[0] - self.position[0]),
-                    np.sign(zombie.position[1] - self.position[1])
-                )
-            else: super().move(random.choice((-1, 1)), random.choice((-1, 1)))
+        if distance < self.sense/2:
+            if random.random() < self.shoot_precision/2: zombie.death()
+        elif distance < self.sense: super().move(
+                np.sign(zombie.position[0] - self.position[0]),
+                np.sign(zombie.position[1] - self.position[1])
+            )
+        else: super().move(random.choice((-1, 1)), random.choice((-1, 1)))
 
     def death(self):
         deaths.append(self)
@@ -65,27 +53,36 @@ class Zombie(Entity):
     def __init__(self, position, sense=15, speed=7):
         super().__init__((0, 255, 0), position, sense, speed)
 
-    def actions(self):
-        if humans:
-            human, distance = self.closest_entity(humans)
-
-            if distance < 2: self.eat(human)
-            else:
-                super().move(
-                    np.sign(self.position[0] - human.position[0]),
-                    np.sign(self.position[1] - human.position[1])
-                )
+    def actions(self, human, distance):
+        if distance < 3: self.eat(human)
+        else:
+            super().move(
+                np.sign(self.position[0] - human.position[0]),
+                np.sign(self.position[1] - human.position[1])
+            )
 
     def eat(self, human):
         zombies.append(Zombie(human.position, human.sense, human.speed))
         human.death()
 
-    def killed(self): zombies.remove(self)
+    def death(self): zombies.remove(self)
 
 def actions():
-    entities = (humans, zombies) if random.random() < 0.5 else (zombies, humans)
-    for entity in entities[0]: entity.actions()
-    for entity in entities[1]: entity.actions()
+    entities = (humans, zombies) if len(humans) > len(zombies) else (zombies, humans)
+    for entity1 in entities[0]:
+        if entities[1]:
+            entity2, distance = closest_entity(entity1, entities[1])
+            entity = (entity1, entity2) if random.random() > 0.5 else (entity2, entity1)
+            entity[0].actions(entity[1], distance)
+            entity[1].actions(entity[0], distance)
+
+def closest_entity(entity1, entities):
+    min = (0, np.inf)
+    for i, entity2 in enumerate(entities):
+        distance = np.square(entity1.position[0] - entity2.position[0]) + np.square(entity1.position[1] - entity2.position[1])
+        if distance < min[1]: min = (i, distance)
+
+    return (entities[min[0]], np.sqrt(min[1]))
 
 def init_humans(nb=NB_ENTITIES):
     return [Human(
@@ -136,7 +133,7 @@ while nb_gen < NB_GEN and is_running:
     if humans:
         winners = f'Humans won, {len(humans)} were still alive'
         for human in humans:
-            human.life += 100
+            human.life *= 2
             human.death()
     else: winners = f'Zombies won, {len(zombies)} were still alive'
 
@@ -155,18 +152,18 @@ plt.ylabel('Gene average')
 
 m, b = np.polyfit(axis, stats['speed'], 1)
 aj_lineaire = np.poly1d([m, b])
-plt.plot(axis, aj_lineaire(axis), label='speed', color='#294DBA')
-plt.plot(axis, stats['speed'], label='speed Point', color='#1B327A', alpha=0.2)
+plt.plot(axis, aj_lineaire(axis), label='speed', color='#62AFDE')
+plt.plot(axis, stats['speed'], label='speed Point', color='#213757', alpha=0.2)
 
 m, b = np.polyfit(axis, stats['sense'], 1)
 aj_lineaire = np.poly1d([m, b])
-plt.plot(axis, aj_lineaire(axis), label='sense', color='#9AFA1E')
-plt.plot(axis, stats['sense'], label='sense Point', color='#6FAD1D', alpha=0.2)
+plt.plot(axis, aj_lineaire(axis), label='sense', color='#A8D379')
+plt.plot(axis, stats['sense'], label='sense Point', color='#3DA542', alpha=0.2)
 
 m, b = np.polyfit(axis, stats['shoot_precision'], 1)
 aj_lineaire = np.poly1d([m, b])
-plt.plot(axis, aj_lineaire(axis), label='shoot precision', color='#FA9D43')
-plt.plot(axis, stats['shoot_precision'], label='shoot precision Point', color='#AD7237', alpha=0.2)
+plt.plot(axis, aj_lineaire(axis), label='shoot precision', color='#ECCD00')
+plt.plot(axis, stats['shoot_precision'], label='shoot precision Point', color='#E38D00', alpha=0.2)
 
 plt.legend(loc='upper left')
 plt.show()
