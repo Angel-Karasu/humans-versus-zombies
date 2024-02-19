@@ -95,7 +95,7 @@ def closest_entity(entity:Entity, entities:np.ndarray[Entity]):
 def init_humans(nb=NB_ENTITIES) -> np.ndarray[Human]:
     return np.array([Human(
         random.randint(10, 15),
-        random.random()/2,
+        random.random()/3,
         random.randint(2, 8)
     ) for _ in range(nb)])
 
