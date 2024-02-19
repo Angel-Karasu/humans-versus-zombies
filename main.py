@@ -42,13 +42,14 @@ class Human(Entity):
 
     def actions(self, zombie:'Zombie', distance:float):
         self.survive_time += 1 # Add 1 second
-        if distance < self.sense/2:
-            if random.random() < self.shoot_precision: zombie.death()
+        if distance < 2: self.death()
         elif distance < self.sense:
-            super().move(
-                np.sign(zombie.position[0] - self.position[0]),
-                np.sign(zombie.position[1] - self.position[1])
-            )
+            if random.random() < self.shoot_precision/(distance * zombie.speed/8): zombie.death()
+            else:
+                super().move(
+                    np.sign(zombie.position[0] - self.position[0]),
+                    np.sign(zombie.position[1] - self.position[1])
+                )
         else: super().move(random.choice((-1, 1)), random.choice((-1, 1)))
 
     def death(self):
@@ -62,7 +63,7 @@ class Zombie(Entity):
 
     def actions(self, human:Human, distance:float):
         if distance < 2: self.eat(human)
-        elif distance < self.sense:
+        elif distance < self.sense*human.speed/5:
             super().move(
                 np.sign(self.position[0] - human.position[0]),
                 np.sign(self.position[1] - human.position[1])
@@ -95,7 +96,7 @@ def closest_entity(entity:Entity, entities:np.ndarray[Entity]):
 def init_humans(nb=NB_ENTITIES) -> np.ndarray[Human]:
     return np.array([Human(
         random.randint(10, 15),
-        random.random()/3,
+        random.random(),
         random.randint(2, 8)
     ) for _ in range(nb)])
 
@@ -121,6 +122,7 @@ def progress_bar(progres, total):
 
 is_running = True
 nb_gen = 0
+simulation_speed = 100
 stats = {'sense':[], 'shoot_precision':[], 'speed':[]}
 
 print(progress_bar(0, NB_GEN), end='\r')
@@ -133,10 +135,17 @@ while nb_gen < NB_GEN and is_running:
     while humans.any() and zombies.any() and time < 3600 and is_running: # Simulate one hour
         if DISPLAY:
             for event in pygame.event.get([pygame.QUIT, pygame.KEYDOWN]):
-                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE) :is_running = False
+                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and (event.key == pygame.K_ESCAPE or event.key == pygame.K_q)):
+                    is_running = False
             WINDOW.fill((0,0,0))
-            for i, text in enumerate([f'Nb gene : {nb_gen}/{NB_GEN}', f'Survive time : {time}s', f'Humans : {len(humans)}', f'Zombies : {len(zombies)}']):
-                WINDOW.blit(FONT.render(text, False, (255, 255, 255)), (5,5+i*15))
+            for i, text in enumerate([
+                f'Nb gene : {nb_gen}/{NB_GEN}',
+                f'Survive time : {time}s',
+                f'Humans : {len(humans)}',
+                f'Zombies : {len(zombies)}',
+                f'Simulation speed : {simulation_speed}%'
+            ]): WINDOW.blit(FONT.render(text, False, (255, 255, 255)), (5,5+i*15))
+            WINDOW.blit(FONT.render('Press escape or q to quit', False, (255, 0, 0)), (5,WORLD_SIZE[1]-15))
             actions()
             pygame.display.flip()
         else: actions()
