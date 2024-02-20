@@ -116,79 +116,78 @@ def natural_selection() -> np.ndarray[Human]:
     ])
     return np.append(humans, init_humans(NB_ENTITIES - len(humans)))
 
-def progress_bar(progres, total):
-    percent = (progres/float(total))*100
-    bar = '█'*int(percent) + '-'*(100-int(percent))
-    return f'|{bar}| {percent:.2f}%'
-
 is_running = True
-nb_gen = 0
-stats = {'sense':[], 'shoot_precision':[], 'speed':[], 'survive_time':[]}
+i_gen = 1
+stats = {'sense':[], 'shoot_precision':[], 'speed':[]}
 
-print(progress_bar(0, NB_GEN), end='\r')
-while nb_gen < NB_GEN and is_running:
-    humans = init_humans() if nb_gen == 0 else natural_selection()
+while i_gen < NB_GEN and is_running:
+    humans = init_humans() if i_gen < 2 else natural_selection()
     deaths = np.array([])
     zombies = init_zombies()
 
     time = 0
     while humans.any() and zombies.any() and time < 3600 and is_running: # Simulate one hour
+        texts = [
+            f'Nb generation : {i_gen}/{NB_GEN}',
+            f'Survive time : {time}s',
+            f'Humans : {len(humans)}',
+            f'Zombies : {len(zombies)}',
+        ]
         if DISPLAY:
             for event in pygame.event.get([pygame.QUIT, pygame.KEYDOWN]):
                 if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and (event.key == pygame.K_ESCAPE or event.key == pygame.K_q)):
                     is_running = False
             WINDOW.fill((0,0,0))
-            for i, text in enumerate([
-                f'Nb gene : {nb_gen}/{NB_GEN}',
-                f'Survive time : {time}s',
-                f'Humans : {len(humans)}',
-                f'Zombies : {len(zombies)}',
-            ]): WINDOW.blit(FONT.render(text, False, (255, 255, 255)), (5,5+i*15))
-            WINDOW.blit(FONT.render('Press escape or q to quit', False, (255, 0, 0)), (5,WORLD_SIZE[1]-15))
             actions()
+            for i, text in enumerate(texts): WINDOW.blit(FONT.render(text, False, (255, 255, 255)), (5,5+i*15))
+            WINDOW.blit(FONT.render('Press escape or q to quit', False, (255, 0, 0)), (5,WORLD_SIZE[1]-15))
             pygame.display.flip()
-        else: actions()
+        else:
+            actions()
+            print('\t'.join(texts), end='\r')
         time += 1 # Add 1 second
 
-    if humans.any():
+    if humans.any() or not is_running:
         winners = f'Humans won, {len(humans)} were still alive'
         for human in humans:
             human.survive_time *= 2
             human.death()
     else: winners = f'Zombies won, {len(zombies)} were still alive'
 
-    for key in stats.keys(): stats[key].append(np.average([getattr(human, key) for human in deaths]))
+    for key in stats.keys():
+        values = np.array([])
+        weights = np.array([])
+        for death in deaths:
+            values = np.append(values, [getattr(death, key)])
+            weights = np.append(weights, [getattr(death, 'survive_time')])
+        stats[key].append(np.average(values, weights=weights))
 
-    nb_gen += 1
-    print(progress_bar(nb_gen, NB_GEN), '\t', winners, end='\r')
+    i_gen += 1
 
 print('\n')
 
 if DISPLAY: pygame.quit()
 
-axis = np.arange(nb_gen)
+axis = np.arange(1, i_gen)
 
 fig, ax1 = plt.subplots()
 ax1.set_xlabel('Nb generation')
 
-ax1.set_ylabel('speed (m/s)', color='#213757')
-ax1.plot(axis, stats['speed'], color='#213757')
-ax1.tick_params(axis='y', labelcolor='#213757')
+axes = [ax1]
 
-ax2 = ax1.twinx()
-ax2.set_ylabel('sense (m)', color='#3DA542')
-ax2.plot(axis, stats['sense'], color='#3DA542')
-ax2.tick_params(axis='y', labelcolor='#3DA542')
+for stat, opt in zip(stats, [
+    ('m/s', '#213757'),
+    ('m', '#3DA542'),
+    ('', '#E38D00')
+]):
+    axes[-1].set_ylabel(f'{stat} ({opt[0]})', color=opt[1])
+    axes[-1].tick_params(axis='y', labelcolor=opt[1])
 
-ax3 = ax1.twinx()
-ax3.set_ylabel('shoot precision', color='#E38D00')
-ax3.plot(axis, stats['shoot_precision'], color='#E38D00')
-ax3.tick_params(axis='y', labelcolor='#E38D00')
+    if len(stats[stat]) > 1:
+        axes[-1].plot(axis, stats[stat], color=opt[1], alpha=0.2)
+        axes[-1].plot(axis, np.poly1d(list(np.polyfit(axis, stats[stat], 1)))(axis), color=opt[1])
 
-ax4 = ax1.twinx()
-ax4.set_ylabel('survive time (s)', color='#c25abd')
-ax4.plot(axis, stats['survive_time'], color='#c25abd')
-ax4.tick_params(axis='y', labelcolor='#c25abd')
+    axes.append(ax1.twinx())
 
 fig.tight_layout()
 plt.show()
