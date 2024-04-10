@@ -9,7 +9,6 @@ Clone this repository and install all requirements packages
 git clone https://github.com/Angel-Karasu/humans-versus-zombies.git;
 cd humans-versus-zombies;
 pip install -r requirements.txt;
-python ./main.py;
 ```
 
 ## How to Use
