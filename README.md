@@ -2,15 +2,19 @@
 
 This is a simple project to simulate human survival against zombies using a natural selection algorithm.
     
-## How to test
+## Installation
 
-If you want to test the project, clone this repository and run it using python command
+Clone this repository and install all requirements packages
 ```shell
 git clone https://github.com/Angel-Karasu/humans-versus-zombies.git;
 cd humans-versus-zombies;
 pip install -r requirements.txt;
 python ./main.py;
 ```
+
+## How to Use
+
+1. Run the python file : `main.py`
   
 ## License
 
