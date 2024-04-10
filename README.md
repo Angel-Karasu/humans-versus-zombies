@@ -11,7 +11,7 @@ cd humans-versus-zombies;
 pip install -r requirements.txt;
 ```
 
-## How to Use
+## How to use
 
 1. Run the python file : `main.py`
   
